@@ -220,8 +220,20 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes to solve this
 
 ```{r}
+#Load clean data
 CleanData=read_csv("clean_data.csv")
 CleanData=CleanData[-1]
+
+#Mean length of utterance of more than 2.7 morphemes
+filter(CleanData, CHI_MLU > 2.7)
+
+#Mean length of utterance of less than 1.5 morphemes at first visit
+filter(CleanData, VISIT == 1, CHI_MLU < 1.5)
+
+#All kids who have not completed all trials
+
+
+
 ```
 
 
@@ -231,7 +243,17 @@ USING ARRANGE
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
 
 ```{r}
+#Sorting kids to find the one that produced most words on the 6th visit
+Visit_6=subset(CleanData, CleanData$VISIT==6)
+arrange(Visit_6, c(Visit_6$tokens_CHI))
 
+#ID 55 produced most words
+
+#Sorting kids to find the one that produced least words on the 1st visit
+Visit_1=subset(CleanData, CleanData$VISIT==1)
+arrange(Visit_1, c(Visit_1$tokens_CHI))
+
+#ID 57 produced least words
 
 ```
 
@@ -241,7 +263,13 @@ USING SELECT
 2. What happens if you include the name of a variable multiple times in a select() call?
 
 ```{r}
+#Making a subset only including children with ASD
+ASD_Data1=subset(CleanData, CleanData$Diagnosis=="ASD")
+ASD_Data=select(ASD_Data1, ID, VISIT, CHI_MLU, tokens_CHI)
 
+#Including a variable name multiple times
+ASD_Data2=select(ASD_Data1, ID, ID, VISIT, CHI_MLU, tokens_CHI)
+#Nothing happens. The variable only appears once. 
 ```
 
 
@@ -252,5 +280,6 @@ USING MUTATE, SUMMARISE and PIPES
 
 ```{r}
 
-
+#3
+#If you only use the average value, you miss out on the personal development that each child undergoes. 
 ```
