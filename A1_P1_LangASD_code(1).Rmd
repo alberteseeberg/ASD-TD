@@ -102,7 +102,9 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 
 ```{r}
-?sapply() 
+LU$ID=gsub('[[:punct:] ]+','',LU$ID)
+Token$ID=gsub('[[:punct:] ]+','',Token$ID)
+Demo$ID=gsub('[[:punct:] ]+','',Demo$ID)
 
 ```
 
@@ -121,7 +123,14 @@ The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 It would be smart to rename the MullenRaw and ExpressiveLangRaw into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
+library(tidyverse)
 
+DataDemo=select(Demo, ID, VISIT, Ethnicity, Diagnosis, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw)
+DataLU=select(LU, ID, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
+DataToken=select(Token, ID, VISIT, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
+
+DataDemo = plyr::rename(DataDemo, c("ExpressiveLangRaw" = "verbalIQ"))
+DataDemo = plyr::rename(DataDemo, c("MullenRaw" = "nonVerbalIQ"))
 
 ```
 
@@ -132,7 +141,11 @@ Tip: Merge only works for two data frames at the time.
 Tip: Check the number of observations in the datasets before and after merging. What is going on?
 
 ```{r}
+#Merge data
+DATA1=merge(DataDemo, DataLU)
+DATA=merge(DATA1, DataToken)
 
+# Reason for less datapoints is due to a larger number og demographic data than in the other datasets. Therefore, it cannot be merged. 
 ```
 
 Are we done yet?
@@ -146,7 +159,17 @@ Tip: the final dataset should have as many rows as the the old one.
 
 
 ```{r}
+#Only data from visit 1
+Visit1Data=subset(DATA, DATA$VISIT=="1")
 
+#Select relevant columns
+ID_visit=select(Visit1Data, ID, ADOS, nonVerbalIQ, verbalIQ)
+
+#Remove old data from relevant columns
+NewData1=DATA[-7:-9]
+
+#Insert the new data from the relevant columns 
+NewData=merge(NewData1, ID_visit, by = "ID")
 ```
 
 Now, we are almost ready to actually start working with the data. However, here are some additional finishing touches:
@@ -161,6 +184,18 @@ Tip: Google "how to rename levels in R".
 
 ```{r}
 
+#Visit is already numeric
+
+#Making ID anonymous 
+NewData$ID=as.factor(NewData$ID)
+NewData$ID=as.numeric(NewData$ID)
+
+#Change gender variable
+NewData$Gender=as.factor(NewData$Gender)
+NewData$Gender=revalue(NewData$Gender, c("1"="M", "2"="F"))
+
+#Change diagnosis variable
+NewData$Diagnosis=revalue(NewData$Diagnosis, c("A"="ASD", "B"="TD"))
 
 ```
 
@@ -168,6 +203,7 @@ Tip: Google "how to rename levels in R".
 Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
+write.csv(NewData, "clean_data.csv", sep=",")
 
 ```
 
@@ -184,8 +220,8 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes to solve this
 
 ```{r}
-
-
+CleanData=read_csv("clean_data.csv")
+CleanData=CleanData[-1]
 ```
 
 
