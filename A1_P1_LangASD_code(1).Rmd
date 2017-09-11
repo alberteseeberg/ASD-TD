@@ -281,7 +281,7 @@ USING MUTATE, SUMMARISE and PIPES
 
 ```{r}
 #Adding a column to the data set that represents mean number of words spoken during all visits
-CleanData=plyr::mutate(CleanData, MeanWordAll = mean(CleanData$tokens_CHI))
+CleanData = CleanData %>% group_by(VISIT) %>% mutate(MeanWordVisit = sum(tokens_CHI)/length(tokens_CHI))
 
 #Adding a column in the data set containing the mean amount of words produced by each trial across all visits
 
