@@ -1,8 +1,8 @@
 ---
 title: "A1_P1_Student"
-author: "Céline Carlsen"
+author: "Alberte Seeberg"
 date: "29/8/2017"
-output: html_document
+output: pdf_document
 ---
 
 # Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD) - Brushing up your code skills
