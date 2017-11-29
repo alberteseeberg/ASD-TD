@@ -1,0 +1,300 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 3"
+author: "Alberte Seeberg"
+date: "August 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Welcome to the third exciting part of the Language Development in ASD exercise
+
+In this exercise we will delve more in depth with different practices of model comparison and model selection, by first evaluating your models from last time, then learning how to cross-validate models and finally how to systematically compare models.
+
+N.B. There are several datasets for this exercise, so pay attention to which one you are using!
+
+1. The (training) dataset from last time (the awesome one you produced :-) ).
+2. The (test) datasets on which you can test the models from last time:
+* Demographic and clinical data: https://www.dropbox.com/s/ra99bdvm6fzay3g/demo_test.csv?dl=0
+* Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=0
+* Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=0
+
+```{r}
+#set working directory
+setwd("~/Desktop/3. Semester/Experimental methods 3/Portfolio 1/Portfolio 1")
+
+#load packages
+library(MuMIn)
+library(lmerTest)
+library(modelr)
+library(plyr)
+library(stringr)
+library(tidyverse)
+library(merTools)
+library(caret)
+library(Metrics)
+
+#Read datasets
+ClData = read.csv("clean_data.csv")
+ClData = ClData[-1]
+
+Demo = read.csv("demo_test.csv")
+LU = read.csv("LU_test.csv")
+Token = read.csv("token_test.csv")
+```
+
+### Exercise 1) Testing model performance
+
+How did your models from last time perform? In this exercise you have to compare the results on the training data () and on the test data. Report both of them. Compare them. Discuss why they are different.
+
+- recreate the models you chose last time (just write the code again and apply it to Assignment2TrainData1.csv)
+- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the functions rmse() and predict() )
+- create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
+- test the performance of the models on the test data (Tips: time to reuse "predict()")
+- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
+
+```{r}
+
+#Running my model
+model1=lmer(CHI_MLU~1+VISIT+verbalIQ+MOT_MLU+(1+VISIT|ID), ClData, REML=FALSE)
+plot(model1)
+summary(model1)
+
+# Finding the root-mean-squared-error
+modelr::rmse(model1, ClData)
+
+#Clean and merge the 3 test datasets
+Demo = plyr::rename(Demo, c("Child.ID" = "ID"))
+LU = plyr::rename(LU, c("SUBJ" = "ID"))
+Token = plyr::rename(Token, c("SUBJ" = "ID"))
+
+Demo = plyr::rename(Demo, c("Visit" = "VISIT"))
+
+LU$VISIT = str_extract(LU$VISIT, "\\d")
+Token$VISIT = str_extract(Token$VISIT, "\\d")
+
+LU$ID=gsub('[[:punct:] ]+','',LU$ID)
+Token$ID=gsub('[[:punct:] ]+','',Token$ID)
+Demo$ID=gsub('[[:punct:] ]+','',Demo$ID)
+
+DataDemo=dplyr::select(Demo, ID, VISIT, Ethnicity, Diagnosis, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw)
+DataLU=dplyr::select(LU, ID, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
+DataToken=dplyr::select(Token, ID, VISIT, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
+
+DataDemo = plyr::rename(DataDemo, c("ExpressiveLangRaw" = "verbalIQ"))
+DataDemo = plyr::rename(DataDemo, c("MullenRaw" = "nonVerbalIQ"))
+
+DATA1=merge(DataDemo, DataLU)
+DATA=merge(DATA1, DataToken)
+
+#Only data from visit 1
+Visit1Data=subset(DATA, DATA$VISIT=="1")
+
+#Select relevant columns
+ID_visit=dplyr::select(Visit1Data, ID, ADOS, nonVerbalIQ, verbalIQ)
+
+#Remove old data from relevant columns
+NewData1=DATA[-7:-9]
+
+#Insert the new data from the relevant columns 
+NewData=merge(NewData1, ID_visit, by = "ID")
+
+
+#Making ID anonymous 
+NewData$ID=as.factor(NewData$ID)
+NewData$ID=as.numeric(NewData$ID)
+
+#Change gender variable
+NewData$Gender=as.factor(NewData$Gender)
+NewData$Gender=plyr::revalue(NewData$Gender, c("1"="M", "2"="F"))
+
+#Change diagnosis variable
+NewData$Diagnosis=revalue(NewData$Diagnosis, c("A"="ASD", "B"="TD"))
+
+write.csv(NewData, "test_data.csv", sep=",")
+
+TestData=read_csv("test_data.csv")
+TestData=TestData[-1]
+
+TestData$Gender=as.factor(TestData$Gender)
+
+# Using the new data to test how well the model predicts. 
+ 
+modelr::rmse(model1, TestData)
+
+#finding the prediction intervals for each subject for each visit
+predictInterval(merMod = model1, newdata = TestData, level = 0.95, n.sims = 1000, stat = "median", type="linear.prediction", include.resid.var = TRUE)
+
+```
+
+[HERE GOES YOUR ANSWER - NMSE sammenlign - det er lavet ud fra det første data set, ikke så mærkeligt at det ikke passer lige så godt på det andet data set som predictive]
+
+### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
+
+One way to reduce bad surprises when testing a model on new data is to train the model via cross-validation. 
+
+In this exercise you have to use cross-validation to calculate the predictive error of your models and use this predictive error to select the best possible model.
+
+- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
+- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
+- Report the results and comment on them.
+
+```{r}
+
+#Making a model of ChildMLU predicted by time and diagnosis
+model2=lmer(CHI_MLU~1+VISIT+Diagnosis+(1+VISIT|ID), ClData, REML=FALSE)
+plot(model2)
+summary(model2)
+
+ClData$ID=as.factor(ClData$ID)
+TestData$ID=as.factor(TestData$ID)
+
+folds = createFolds(unique(ClData$ID), 4)
+
+#Create a loop
+
+TrainRMSE=NULL
+TestRMSE=NULL
+n=1
+
+for (fold in folds){
+  #create a second training dataset 
+  trainD=subset(ClData,! (ID %in% fold))
+  
+  #create a second test dataset
+  Test2=subset(ClData, (ID %in% fold))
+  
+  #create a model - train
+  TrainModel=lmer(CHI_MLU~1+VISIT+Diagnosis+(1+VISIT|ID), trainD, REML=FALSE)
+  
+  #Getting the rmse for the train data
+  TrainRMSE[n]=Metrics::rmse(trainD$CHI_MLU, predict(TrainModel, trainD))
+  
+  #Getting the rmse for the test data
+  PRED=predict(TrainModel, Test2, allow.new.levels=TRUE)
+  TestRMSE[n] = Metrics::rmse(Test2$CHI_MLU, PRED)
+  n=n+1
+ 
+  }
+
+mean(TrainRMSE)
+mean(TestRMSE)
+
+```
+
+- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+```{r}
+#Creating new loop
+
+TrainRMSE2=NULL
+TestRMSE2=NULL
+n=1
+
+for (fold in folds){
+  #create a second training dataset 
+  trainD=subset(ClData,! (ID %in% fold))
+  
+  #create a second test dataset
+  Test2=subset(ClData, (ID %in% fold))
+  
+  #create a model - train
+  TrainModel2=lmer(CHI_MLU~1+VISIT+MOT_MLU+verbalIQ+(1+VISIT|ID), trainD, REML=FALSE)
+  
+  #Getting the rmse for the train data
+  TrainRMSE2[n]=Metrics::rmse(trainD$CHI_MLU, predict(TrainModel2, trainD))
+  
+  #Getting the rmse for the test data
+  PRED2=predict(TrainModel2, Test2, allow.new.levels=TRUE)
+  TestRMSE2[n] = Metrics::rmse(Test2$CHI_MLU, PRED2)
+  n=n+1
+  }
+
+mean(TrainRMSE2)
+mean(TestRMSE2)
+
+
+#This model is better, as the error is smaller on the test data. Hence, it is a better predictive model.
+
+```
+
+
+- Bonus Question 1: How would you go comparing the performance of the basic model and the cross-validated model on the testing set?
+- Bonus Question 2: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+- Bonus Question 3: compare the cross-validated predictive error against the actual predictive error on the test data
+
+### Exercise 3) Assessing the single child
+
+Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
+
+Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
+
+You want to evaluate:
+
+- how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
+(Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
+
+- how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+```{r}
+#Creating a dataset for Bernie
+BernieData=NewData[NewData$ID=="Bernie",]
+
+#Creating a dataset for TD children
+TdData=ClData[ClData$Diagnosis=="TD",]
+
+#Creating a model 
+TdModel=lmer(CHI_MLU~1+VISIT+MOT_MLU+verbalIQ+(1+VISIT|ID), TdData, REML=FALSE)
+summary(TdModel)
+
+#x=visit
+#y=MOT_MLU
+#z=verbalIQ
+B_func = function(x,y,z){
+  -1.629+ 0.285*x+ 0.49*y+0.046*z
+  }
+
+#Visit 1
+B_func(1,3.414,28)
+#Visit2
+B_func(2,5.125,28)
+#Visit 3
+B_func(3,4.369,28)
+#Visit 4
+B_func(4,4.517,28)
+#Visit 5
+B_func(5,4.02,28)
+#Visit 6
+B_func(6,3.819,28)
+
+
+
+#Predicting how Bernie should do in MLU from the TD data
+predict(TdModel, BernieData, allow.new.levels=TRUE)
+
+#Difference from expected values in MLU to actual values
+BernieData$CHI_MLU - predict(TdModel, BernieData, allow.new.levels=TRUE)
+
+#Plotting the differences
+plot(BernieData$CHI_MLU - predict(TdModel, BernieData, allow.new.levels=TRUE))
+```
+
+[HERE GOES YOUR ANSWER]
+
+Bernie generally lies above in MLU, than what he is expected to, according to the model. In the first visit he have a MLU score of 0.38 above the expected score of 1.604. In the second visit he have a MLU score a bit below the expected score, but in the rest of the visits he has a higher MLU score than expected. In the last visit (visit 6) he scores 0.222 above what is expected. 
+
+
+### OPTIONAL: Exercise 4) Model Selection via Information Criteria
+Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!
+
+Re-create a selection of possible models explaining ChildMLU (the ones you tested for exercise 2, but now trained on the full dataset and not cross-validated).
+
+Then try to find the best possible predictive model of ChildMLU, that is, the one that produces the lowest information criterion.
+
+- Bonus question for the optional exercise: are information criteria correlated with cross-validated RMSE? That is, if you take AIC for Model 1, Model 2 and Model 3, do they co-vary with their cross-validated RMSE?
+
+### OPTIONAL: Exercise 5): Using Lasso for model selection
+Welcome to the last secret exercise. If you have already solved the previous exercises, and still there's not enough for you, you can expand your expertise by learning about penalizations. Check out this tutorial: http://machinelearningmastery.com/penalized-regression-in-r/ and make sure to google what penalization is, with a focus on L1 and L2-norms. Then try them on your data!
+
+

@@ -85,6 +85,7 @@ Tip: There is a package called stringr, which will be very handy for you also in
 ```{r}
 library(stringr)
 
+#Only keep the digits
 LU$VISIT = str_extract(LU$VISIT, "\\d")
 Token$VISIT = str_extract(Token$VISIT, "\\d")
 
@@ -129,6 +130,7 @@ DataDemo=select(Demo, ID, VISIT, Ethnicity, Diagnosis, Gender, Age, ADOS, Mullen
 DataLU=select(LU, ID, VISIT, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd)
 DataToken=select(Token, ID, VISIT, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 
+#Renaming 
 DataDemo = plyr::rename(DataDemo, c("ExpressiveLangRaw" = "verbalIQ"))
 DataDemo = plyr::rename(DataDemo, c("MullenRaw" = "nonVerbalIQ"))
 
@@ -225,7 +227,7 @@ CleanData=read_csv("clean_data.csv")
 CleanData=CleanData[-1]
 
 #Mean length of utterance of more than 2.7 morphemes
-filter(CleanData, CHI_MLU > 2.7)
+CleanData %>% group_by(ID) %>% summarise(MEAN=mean(CHI_MLU)) %>% filter(MEAN > 2.7)
 
 #Mean length of utterance of less than 1.5 morphemes at first visit
 filter(CleanData, VISIT == 1, CHI_MLU < 1.5)
@@ -248,13 +250,13 @@ USING ARRANGE
 Visit_6=subset(CleanData, CleanData$VISIT==6)
 arrange(Visit_6, c(Visit_6$tokens_CHI))
 
-#ID 55 produced most words
+#ID 55 produced most words (1294)
 
 #Sorting kids to find the one that produced least words on the 1st visit
 Visit_1=subset(CleanData, CleanData$VISIT==1)
 arrange(Visit_1, c(Visit_1$tokens_CHI))
 
-#ID 57 produced least words
+#ID 57 produced least words (0)
 
 ```
 
