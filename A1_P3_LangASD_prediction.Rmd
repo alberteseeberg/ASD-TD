@@ -299,15 +299,6 @@ BernieComp=data.frame(Visit, Category, MLU)
 BernieP=ggplot(BernieComp, aes(x = Visit, y= MLU, colour = Category)) + geom_smooth() + geom_point()
 BernieP
 
-#Predicting how Bernie should do in MLU from the TD data
-predict(TdModel, BernieData, allow.new.levels=TRUE)
-
-#Difference from expected values in MLU to actual values
-BernieData$CHI_MLU - predict(TdModel, BernieData, allow.new.levels=TRUE)
-
-#Plotting the differences
-plot(BernieData$CHI_MLU - predict(TdModel, BernieData, allow.new.levels=TRUE))
-
 # Subsetting the visit 6 data
 Bernie6 = BernieData[6,] 
 # Using the predict function to compare VISIT 6
