@@ -46,7 +46,7 @@ plot(model1)
 summary(model1)
 
 #Getting the power for my model with visits as fixed effect
-PowerV=powerSim(model1,fixed("VISIT"),nsim=200)
+PowerV=powerSim(model1,fixed("VISIT"),nsim=100)
 PowerV
 
 #Making my model with an interaction effect
@@ -54,10 +54,10 @@ model2=lmer(CHI_MLU~1+VISIT*Diagnosis+(1+VISIT|ID), ClData, REML=FALSE)
 plot(model2)
 summary(model2)
 
-PowerV2=powerSim(model1,fixed("Diagnosis"), nsim=200)
+PowerV2=powerSim(model1,fixed("Diagnosis"), nsim=100)
 PowerV2
 
-PowerV3=powerSim(model2, fixed("VISIT:Diagnosis"), nsim=200)
+PowerV3=powerSim(model2, fixed("VISIT:Diagnosis"), nsim=100)
 PowerV3
 
 
@@ -81,11 +81,13 @@ fixef(model2)["VISIT"] = 0.5
 fixef(model2)["DiagnosisTD"] = -0.1
 powerCurveV = powerCurve(model1,fixed("VISIT"),along="ID",nsim=100)
 plot(powerCurveV)
+powerCurveV
 powerCurveV2 = powerCurve(model1,fixed("Diagnosis"),along="ID",nsim=100)
 plot(powerCurveV2)
+powerCurveV2
 powerCurveV3 = powerCurve(model2,fixed("VISIT:Diagnosis"),along="ID",nsim=100)
 plot(powerCurveV3)
-
+powerCurveV3
 model1Normalbeta = lmerTest::lmer(CHI_MLU ~ 1 + VISIT*Diagnosis + (1 + VISIT|ID), ClData, REML = FALSE)
 
 ### Riccardo's clumsy function to simulate new participants
@@ -161,11 +163,13 @@ summary(Model3)
 fixef(Model3)["VISIT"] = 0.05
 fixef(Model3)["DiagnosisTD"] = -0.10
 
-powerCurveD2 = powerCurve(m3, fixed("Diagnosis"),along="ID", nsim=10)
+powerCurveD2 = powerCurve(Model3, fixed("Diagnosis"),along="ID", nsim=10)
 plot(powerCurveD2)
+powerCurveD2
 
-powerCurveV2 = powerCurve(m3, fixed("VISIT"),along="ID", nsim=10)
+powerCurveV2 = powerCurve(Model3, fixed("VISIT"),along="ID", nsim=10)
 plot(powerCurveV2)
+powerCurveV2
 
 ```
 
